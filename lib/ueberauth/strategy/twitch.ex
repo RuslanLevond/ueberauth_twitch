@@ -96,14 +96,18 @@ defmodule Ueberauth.Strategy.Twitch do
   """
   def handle_callback!(%Plug.Conn{params: %{"code" => code}} = conn) do
     module = option(conn, :oauth2_module)
-    token = apply(module, :get_token!, [[code: code]])
 
-    if token.access_token == nil do
-      set_errors!(conn, [
-        error(token.other_params["error"], token.other_params["error_description"])
-      ])
+    with {:ok, token} <- apply(module, :get_token, [[code: code]]) do
+      if token.access_token == nil do
+        set_errors!(conn, [
+          error(token.other_params["error"], token.other_params["error_description"])
+        ])
+      else
+        fetch_user(conn, token)
+      end
     else
-      fetch_user(conn, token)
+      {:error, reason} ->
+        set_errors!(conn, [error("OAuth2", inspect(reason))])
     end
   end
 
